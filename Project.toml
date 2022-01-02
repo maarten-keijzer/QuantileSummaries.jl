@@ -1,0 +1,4 @@
+name = "QuantileSummaries"
+uuid = "87d88ec3-7f77-4679-a477-f0cfe15ae224"
+authors = ["Maarten Keijzer <maarten.keijzer@gmail.com>"]
+version = "0.1.0"
