@@ -259,13 +259,18 @@ end
 
 targetsize(qb::QuantileBuilder) = Int64(floor(2/qb.eps))
 
-function merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
+function _merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
     
-    # add current summaries
+    # merge current summaries
     qb1.summary = merge(qb1.summary, qb2.summary)
     
+    # merge in the current working set of qb2
     qb1.summary = merge(qb1.summary, compress(merge(qb2.workingset), targetsize(qb1)))
+    
+    # Make sure the count is still correct
     qb1.n += qb2.n
+
+    # we keep qb1 in the same state as it was wrt exponentially increasing workingsets
 
     qb1
 end

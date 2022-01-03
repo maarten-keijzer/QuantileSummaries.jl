@@ -12,7 +12,7 @@ export QuantileBuilder, QuantileSummary, DataItem,
     ndata
 
 import StatsBase: nobs, fit!, merge!
-import OnlineStatsBase: value, OnlineStat, _fit!
+import OnlineStatsBase: value, OnlineStat, _fit!, _merge!
 
 
 include("QuantileBuilder.jl")
