@@ -180,7 +180,6 @@ function _fit!(fs::FixedSizeSummaryBuilder{T}, value) where {T}
             push!(fs.levels, summary)
         end
         empty!(fs.values)
-
     end
 end
 
