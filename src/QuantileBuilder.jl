@@ -133,17 +133,13 @@ function percentile(qs::QuantileSummary, value)
 end
 
 function qindex(qs::QuantileSummary, percentile::Number)
-    rank = percentile * qs[end].rmax + 1 # rank is one based
-    idx = searchsortedfirst(
-        qs,
-        DataItem(0, Int64(floor(rank))),
-        by = x -> x.rmax,
-    )
+    idx = Int(round(percentile * length(qs))) + 1 # rank is one based
     if idx > length(qs)
         idx = length(qs)
     end
     idx
 end
+
 
 function qvalue(qs::QuantileSummary, percentile::Number)
     qs[qindex(qs, percentile)].value
@@ -264,10 +260,10 @@ function _merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
     # merge current summaries
     qb1.summary = merge(qb1.summary, qb2.summary)
     
-    # merge in the current working set of qb2
+    # merge the current working set of qb2
     qb1.summary = merge(qb1.summary, compress(merge(qb2.workingset), targetsize(qb1)))
     
-    # Make sure the count is still correct
+    # Make sure nobs is still correct
     qb1.n += qb2.n
 
     # we keep qb1 in the same state as it was wrt exponentially increasing workingsets

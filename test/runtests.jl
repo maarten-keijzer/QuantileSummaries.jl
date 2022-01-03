@@ -4,31 +4,17 @@ using Random
 using QuantileSummaries
 
 
-@test true
+@testset "String" begin
+    # string
+    qb = QuantileBuilder{String}()
 
-qb = QuantileBuilder()
+    for i = 1:1000
+        fit!(qb, randstring(10))
+    end
 
-fit!(qb, randn(100_000))
-@test nobs(qb) == 100_000
-
-summary = value(qb)
-
-qvalue(summary, 0.5)
-qindex(summary, 500)
-
-for i = 0:0.05:1
-    println(Int(floor(i*100)), "% ", qvalue(summary, i))
+    summary = value(qb)
+    @test true #passed without erroring
 end
-
-
-# string
-qb = QuantileBuilder{String}()
-
-for i = 1:1000
-    fit!(qb, randstring(10))
-end
-
-summary = value(qb)
 
 @testset "Correctness" begin
     
@@ -45,8 +31,8 @@ summary = value(qb)
     # Test if the right percentile is identified (within eps)
     for percentile = eps:eps/2:1
         
-        truevalue = r[ Int(floor(percentile * n)) ]
-        predictedpercentile = QuantileSummaries.percentile(qs, truevalue)
+        valueforpercentile = r[ Int(floor(percentile * n)) ]
+        predictedpercentile = QuantileSummaries.percentile(qs, valueforpercentile)
         @test abs(predictedpercentile-percentile) < eps
 
     end
@@ -54,15 +40,28 @@ summary = value(qb)
     for i = 1:1000
         percentile = rand() 
         idx = 1 + Int(floor(percentile * n))
-        truevalue = r[idx]
-        predictedpercentile = QuantileSummaries.percentile(qs, truevalue)
+        valueforpercentile = r[idx]
+        predictedpercentile = QuantileSummaries.percentile(qs, valueforpercentile)
         @test abs(predictedpercentile-percentile) < eps
-
     end
 
+    # check if computed value is within eps of expected
+    # Percentiles & values are the same in this setup
+    eps = 0.01
+    qb = QuantileBuilder(eps)
+
+    r = collect(0:0.0001:1)
+    shuffle!(r)
+    fit!(qb, r)
+    qs = summarize(qb)
+
+    for p in 0:0.001:1
+        value = qvalue(qs, p)
+        @test( abs(p-value) < eps )
+    end
 end
 
-@testset "Merge" begin
+@testset "merge!" begin
     eps = 0.01
     qb1 = QuantileBuilder(eps)
     qb2 = QuantileBuilder(eps)
@@ -76,16 +75,15 @@ end
             fit!(qb2, value)
         end
     end
+
     merge!(qb1, qb2)
     sort!(r)
 
     qs = summarize(qb1)
     for percentile = eps:eps/2:1
-        
-        truevalue = r[ Int(floor(percentile * n)) ]
-        predictedpercentile = QuantileSummaries.percentile(qs, truevalue)
+        valueforpercentile = r[ Int(floor(percentile * n)) ]
+        predictedpercentile = QuantileSummaries.percentile(qs, valueforpercentile)
         @test abs(predictedpercentile-percentile) < eps
-
     end
 
 end
