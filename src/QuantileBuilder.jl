@@ -1,8 +1,10 @@
 
+# A Fast Algorithm for Approximate Quantiles in High Speed Data Streams
+# Qi Zhang and Wei Wang
 
 struct DataItem{T}
     value::T
-    rankupperbound::Int64
+    rmax::Int64
 end
 
 const QuantileSummary{T} = Array{DataItem{T},1}
@@ -77,9 +79,9 @@ function Base.merge(x::QuantileSummary{T}, y::QuantileSummary{T})::QuantileSumma
         end
 
         if isnothing(yt)
-            rmax = xr.rankupperbound + ys.rankupperbound
+            rmax = xr.rmax + ys.rmax
         else
-            rmax = xr.rankupperbound + yt.rankupperbound - 1
+            rmax = xr.rmax + yt.rmax - 1
         end
 
         list[idx] = DataItem{T}(xr.value, rmax);
@@ -94,7 +96,7 @@ function compress(list::QuantileSummary{T}, sz::Int)::QuantileSummary{T} where {
         return list
     end
 
-    count = list[end].rankupperbound
+    count = list[end].rmax
     stepsize = count / sz
 
     newlist = QuantileSummary{T}(undef, sz+1)
@@ -103,85 +105,22 @@ function compress(list::QuantileSummary{T}, sz::Int)::QuantileSummary{T} where {
 
     newlist[1] = list[i]
     idx = 2;
-    #push!(newlist, list[i])
 
     for rank = stepsize:stepsize:count
-        while list[i].rankupperbound < rank
+        while list[i].rmax < rank
             i += 1
         end
 
         newitem = DataItem{T}(
             list[i].value,
-            list[i].rankupperbound,
+            list[i].rmax,
         )
 
-        #push!(newlist, newitem)
         newlist[idx] = newitem;
         idx += 1
         i += 1
     end
     newlist
-end
-
-function maxdistance(l1::QuantileSummary{T}, l2::QuantileSummary{T} ) where T
-
-    rankupperbound1 = Float64(l1[end].rankupperbound)
-    rankupperbound2 = Float64(l2[end].rankupperbound)
-
-    dist = 0.0
-
-    upper = 1
-
-    for item in l1
-        while upper <= length(l2) && l2[upper].value < item.value
-            upper += 1
-        end
-        if upper > length(l2)
-            upper = length(l2)
-        end
-
-        p0 = item.rankupperbound / rankupperbound1
-        if item.value == l2[upper].value
-            p1 = l2[upper].rankupperbound / rankupperbound2
-            dist = max(dist, abs(p0-p1))
-        else
-            if upper == 1
-                upper = 2
-            end
-
-            if true
-                #interpolate
-                α = (item.value - l2[upper-1].value) / (l2[upper].value - l2[upper-1].value)
-                if item.value > l2[upper].value
-                    α = 1
-                end
-
-                p1upper = l2[upper].rankupperbound / rankupperbound2
-                p1lower = l2[upper-1].rankupperbound / rankupperbound2
-                p1 = p1lower + α * (p1upper - p1lower)
-                dist = max(dist, abs(p0-p1))
-                #println("$dist $α $upper $p1lower $p1upper $(item.value)")
-            else
-                p11 = abs(p0 - l2[upper-1].rankupperbound / rankupperbound2)
-                p12 = abs(p0 - l2[upper].rankupperbound / rankupperbound2)
-                dist = max(dist, max(p11,p12))
-                #dist = max(dist, )
-            end
-        end
-
-    end
-
-    dist
-end
-
-function ks_probability(l1::QuantileSummary{T}, l2::QuantileSummary{T} ) where T
-    diff = max(maxdistance(l1,l2), maxdistance(l2,l1))
-
-    n = l1[end].rankupperbound
-    m = l2[end].rankupperbound
-
-    min(1.0, 2exp(- diff * diff * 2m / (1+m/n)))
-
 end
 
 function percentile(qs::QuantileSummary, value)
@@ -190,15 +129,15 @@ function percentile(qs::QuantileSummary, value)
         idx = length(qs)
     end
 
-    qs[idx].rankupperbound / Float64(qs[end].rankupperbound)
+    qs[idx].rmax / Float64(qs[end].rmax)
 end
 
 function qindex(qs::QuantileSummary, percentile::Number)
-    rank = percentile * qs[end].rankupperbound + 1 # rank is one based
+    rank = percentile * qs[end].rmax + 1 # rank is one based
     idx = searchsortedfirst(
         qs,
         DataItem(0, Int64(floor(rank))),
-        by = x -> x.rankupperbound,
+        by = x -> x.rmax,
     )
     if idx > length(qs)
         idx = length(qs)
@@ -318,12 +257,27 @@ function _fit!(qb::QuantileBuilder{T}, value) where {T}
     end
 end
 
+targetsize(qb::QuantileBuilder) = Int64(floor(2/qb.eps))
+
+function merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
+    
+    # add current summaries
+    qb1.summary = merge(qb1.summary, qb2.summary)
+    
+    qb1.summary = merge(qb1.summary, compress(merge(qb2.workingset), targetsize(qb1)))
+    qb1.n += qb2.n
+
+    qb1
+end
+
 function summarize(qb::QuantileBuilder)::QuantileSummary
     if isnothing(qb.cachedSummary)
         qb.cachedSummary = merge(
             qb.summary,
             compress(merge(qb.workingset), Int64(floor(2 / qb.eps))),
         )
+
+        # do a final compression to create a smaller summary that is still an ϵ-approximate summary
         qb.cachedSummary = compress(qb.cachedSummary, Int64(floor(2/qb.eps)))
     end
     qb.cachedSummary
@@ -335,12 +289,12 @@ ndata(fs::FixedSizeSummaryBuilder) = length(fs.values) + sum(ndata(qs) for qs in
 
 value(qb::QuantileBuilder) = summarize(qb)
 
-function qvalue(qs::QuantileBuilder, percentile::Number)
-    qvalue(summarize(qs), percentile)
+function qvalue(qb::QuantileBuilder, percentile::Number)
+    qvalue(summarize(qb), percentile)
 end
 
-function qindex(qs::QuantileBuilder, percentile::Number)
-    qindex(summarize(qs), percentile)
+function qindex(qb::QuantileBuilder, percentile::Number)
+    qindex(summarize(qb), percentile)
 end
 
 function percentile(qs::QuantileBuilder, value)
