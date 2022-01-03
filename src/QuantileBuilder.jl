@@ -101,10 +101,10 @@ function compress(list::QuantileSummary{T}, sz::Int)::QuantileSummary{T} where {
 
     newlist = QuantileSummary{T}(undef, sz+1)
 
-    i = 1
 
-    newlist[1] = list[i]
-    idx = 2;
+    newlist[1] = list[1]
+    i = 1
+    next = 2;
 
     for rank = stepsize:stepsize:count
         while list[i].rmax < rank
@@ -116,8 +116,8 @@ function compress(list::QuantileSummary{T}, sz::Int)::QuantileSummary{T} where {
             list[i].rmax,
         )
 
-        newlist[idx] = newitem;
-        idx += 1
+        newlist[next] = newitem;
+        next += 1
         i += 1
     end
     newlist
@@ -140,7 +140,6 @@ function qindex(qs::QuantileSummary, percentile::Number)
     idx
 end
 
-
 function qvalue(qs::QuantileSummary, percentile::Number)
     qs[qindex(qs, percentile)].value
 end
@@ -158,7 +157,6 @@ mutable struct FixedSizeSummaryBuilder{T}
         end
         new{T}(Array{T, 1}(), Array{QuantileSummary{T}, 1}(), maxsize)
     end
-
 end
 
 function _fit!(fs::FixedSizeSummaryBuilder{T}, value) where {T}
