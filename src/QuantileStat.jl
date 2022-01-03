@@ -200,7 +200,7 @@ function Base.merge(fs::FixedSizeSummaryBuilder)::QuantileSummary
 end
 
 
-mutable struct QuantileBuilder{T} <: OnlineStat{T}
+mutable struct QuantileStat{T} <: OnlineStat{T}
     eps::Float64
 
     current::Int64
@@ -213,7 +213,7 @@ mutable struct QuantileBuilder{T} <: OnlineStat{T}
 
     cachedSummary::Union{Nothing, QuantileSummary{T}}
 
-    QuantileBuilder{T}(eps::Float64 = 0.01) where {T} = begin
+    QuantileStat{T}(eps::Float64 = 0.01) where {T} = begin
         current = 3
         total = Int64(floor(((1 << current) / eps)))
         n = 0
@@ -229,10 +229,10 @@ mutable struct QuantileBuilder{T} <: OnlineStat{T}
             nothing,
         )
     end
-    QuantileBuilder(eps::Float64 = 0.01) = QuantileBuilder{Number}(eps)
+    QuantileStat(eps::Float64 = 0.01) = QuantileStat{Number}(eps)
 end
 
-function _fit!(qb::QuantileBuilder{T}, value) where {T}
+function _fit!(qb::QuantileStat{T}, value) where {T}
     qb.cachedSummary = nothing
 
     _fit!(qb.workingset, T(value))
@@ -250,9 +250,9 @@ function _fit!(qb::QuantileBuilder{T}, value) where {T}
     end
 end
 
-targetsize(qb::QuantileBuilder) = Int64(floor(2/qb.eps))
+targetsize(qb::QuantileStat) = Int64(floor(2/qb.eps))
 
-function _merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
+function _merge!(qb1::QuantileStat{T}, qb2::QuantileStat{T}) where {T}
     
     # merge current summaries
     qb1.summary = merge(qb1.summary, qb2.summary)
@@ -268,7 +268,7 @@ function _merge!(qb1::QuantileBuilder{T}, qb2::QuantileBuilder{T}) where {T}
     qb1
 end
 
-function summarize(qb::QuantileBuilder)::QuantileSummary
+function summarize(qb::QuantileStat)::QuantileSummary
     if isnothing(qb.cachedSummary)
         qb.cachedSummary = merge(
             qb.summary,
@@ -282,23 +282,23 @@ function summarize(qb::QuantileBuilder)::QuantileSummary
 end
 
 ndata(qs::QuantileSummary) = length(qs)
-ndata(qb::QuantileBuilder) = ndata(qb.summary) + ndata(qb.workingset)
+ndata(qb::QuantileStat) = ndata(qb.summary) + ndata(qb.workingset)
 ndata(fs::FixedSizeSummaryBuilder) = length(fs.values) + sum(ndata(qs) for qs in fs.levels)
 
-value(qb::QuantileBuilder) = summarize(qb)
+value(qb::QuantileStat) = summarize(qb)
 
-function qvalue(qb::QuantileBuilder, percentile::Number)
+function qvalue(qb::QuantileStat, percentile::Number)
     qvalue(summarize(qb), percentile)
 end
 
-function qindex(qb::QuantileBuilder, percentile::Number)
+function qindex(qb::QuantileStat, percentile::Number)
     qindex(summarize(qb), percentile)
 end
 
-function percentile(qs::QuantileBuilder, value)
+function percentile(qs::QuantileStat, value)
     percentile(summarize(qs), value)
 end
 
-function median(qb::QuantileBuilder)
+function median(qb::QuantileStat)
     qvalue(qb, 0.5)
 end

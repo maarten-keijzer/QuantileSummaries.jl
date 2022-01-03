@@ -6,7 +6,7 @@ using QuantileSummaries
 
 @testset "String" begin
     # string
-    qb = QuantileBuilder{String}()
+    qb = QuantileStat{String}()
 
     for i = 1:1000
         fit!(qb, randstring(10))
@@ -19,7 +19,7 @@ end
 @testset "Correctness" begin
     
     eps = 0.01
-    qb = QuantileBuilder(eps)
+    qb = QuantileStat(eps)
 
     n = 10_000
     r = randn(n)
@@ -48,7 +48,7 @@ end
     # check if computed value is within eps of expected
     # Percentiles & values are the same in this setup
     eps = 0.01
-    qb = QuantileBuilder(eps)
+    qb = QuantileStat(eps)
 
     r = collect(0:0.0001:1)
     shuffle!(r)
@@ -63,8 +63,8 @@ end
 
 @testset "merge!" begin
     eps = 0.01
-    qb1 = QuantileBuilder(eps)
-    qb2 = QuantileBuilder(eps)
+    qb1 = QuantileStat(eps)
+    qb2 = QuantileStat(eps)
 
     n = 10_000
     r = randn(n)

@@ -1,7 +1,7 @@
 module QuantileSummaries
 
 
-export QuantileBuilder, QuantileSummary, DataItem,
+export QuantileStat, QuantileSummary, DataItem,
     fit!,
     value,
     nobs,
@@ -11,10 +11,9 @@ export QuantileBuilder, QuantileSummary, DataItem,
     qvalue,
     ndata
 
-import StatsBase: nobs, fit!, merge!
+import StatsBase: nobs, fit!, merge!, value
 import OnlineStatsBase: value, OnlineStat, _fit!, _merge!
 
-
-include("QuantileBuilder.jl")
+include("QuantileStat.jl")
 
 end # module
